@@ -2,92 +2,73 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Istanbul AR - Cozum Merkezi</title>
+    <title>Istanbul AR</title>
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #111; font-family: sans-serif; }
-        #debug-log { 
-            position: fixed; top: 0; left: 0; width: 100%; background: rgba(0,0,0,0.8);
-            color: #00ff00; font-size: 11px; z-index: 20000; padding: 10px; max-height: 100px; overflow-y: auto;
-        }
-        #panel {
+        body { margin: 0; overflow: hidden; background: #000; }
+        
+        /* Kamerayı ve sahneyi zorla görünür yapan CSS */
+        .a-canvas { position: relative; z-index: 10; }
+        video { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: 1; }
+
+        #overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 10000; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: #000; z-index: 10000; display: flex;
+            flex-direction: column; justify-content: center; align-items: center;
         }
         button {
-            padding: 20px 50px; background: #e67e22; color: white; border: none; border-radius: 50px; font-size: 20px; font-weight: bold; cursor: pointer;
+            padding: 20px 40px; background: #27ae60; color: white;
+            border: none; border-radius: 50px; font-size: 20px; font-weight: bold;
         }
-        /* Kamerayi görünür yapmak için kritik CSS */
-        video, canvas { position: fixed !important; top: 0; left: 0; z-index: -1 !important; }
     </style>
 </head>
 <body>
 
-    <div id="debug-log">Sistem hazır. Butona basınız...</div>
-
-    <div id="panel">
-        <button id="start-btn">KAMERAYI UYANDIR</button>
-        <p style="color: white; margin-top: 20px;">Sorun olursa sayfayı yenileyin.</p>
+    <div id="overlay">
+        <button id="startBtn">DENEYİMİ BAŞLAT</button>
+        <p style="color: white; margin-top: 15px;">Lütfen kameraya izin verin.</p>
     </div>
 
     <a-scene 
-        mindar-image="imageTargetSrc: ./targets_1.mind; autoStart: false; uiLoading: no; uiScanning: yes;" 
+        mindar-image="imageTargetSrc: ./targets_1.mind; autoStart: false; uiScanning: yes;" 
         embedded vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
         
         <a-assets>
-            <video id="v" src="video_2.mp4" preload="auto" loop crossorigin="anonymous" playsinline></video>
+            <video id="arVideo" src="video_2.mp4" preload="auto" loop crossorigin="anonymous" playsinline></video>
         </a-assets>
 
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
         <a-entity mindar-image-target="targetIndex: 0" id="target">
-            <a-video src="#v" position="0 0 0" height="1" width="1.8"></a-video>
+            <a-video src="#arVideo" position="0 0 0" height="1" width="1.8"></a-video>
         </a-entity>
     </a-scene>
 
     <script>
-        const log = (msg) => { document.getElementById('debug-log').innerText += "\n> " + msg; };
-        const btn = document.getElementById('start-btn');
-        const panel = document.getElementById('panel');
-        const video = document.getElementById('v');
+        const btn = document.getElementById('startBtn');
+        const overlay = document.getElementById('overlay');
+        const video = document.getElementById('arVideo');
+        const scene = document.querySelector('a-scene');
 
-        btn.addEventListener('click', async () => {
-            log("Butona tıklandı. Kamera isteniyor...");
+        btn.addEventListener('click', () => {
+            overlay.style.display = "none";
             
-            // 1. Adım: Tarayıcıda Kamera API'si var mı?
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                log("HATA: Tarayıcınız kamerayı desteklemiyor veya bağlantı güvenli değil (HTTPS değil).");
-                return;
-            }
+            // MindAR Sistemini başlat
+            const arSystem = scene.systems["mindar-image-system"];
+            arSystem.start(); 
 
-            try {
-                // 2. Adım: Kamerayı manuel olarak açmayı dene
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                log("Kamera izni alındı.");
-                stream.getTracks().forEach(t => t.stop()); // İzni aldık, serbest bırak
-
-                panel.style.display = "none";
-                
-                // 3. Adım: AR Sistemini başlat
-                const scene = document.querySelector('a-scene');
-                const arSystem = scene.systems["mindar-image-system"];
-                arSystem.start();
-                log("AR Sistemi başlatıldı. Hedefi tarayın.");
-
-                // Video kilidini aç
-                video.play().then(() => video.pause());
-
-            } catch (err) {
-                log("HATA: " + err.name + " - " + err.message);
-                alert("Kamera hatası: " + err.message);
-            }
+            // Video kilidini aç (Sessiz başlatıp durdurarak)
+            video.muted = true;
+            video.play().then(() => {
+                video.pause();
+                video.muted = false;
+            });
         });
 
-        document.getElementById('target').addEventListener("targetFound", () => {
-            log("Hedef bulundu! Video başlıyor.");
-            video.play();
-        });
+        const target = document.getElementById('target');
+        target.addEventListener("targetFound", () => { video.play(); });
+        target.addEventListener("targetLost", () => { video.pause(); });
     </script>
 </body>
 </html>
