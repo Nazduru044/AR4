@@ -1,39 +1,39 @@
 <!DOCTYPE html>
-<html>
+<html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Istanbul AR - Tam Ekran</title>
+    <title>İstanbul AR - Full Screen</title>
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <style>
+        /* Tam ekran için gerekli CSS */
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
         
-        #arayuz {
+        #giris-ekrani {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #000; z-index: 10000; display: flex;
             flex-direction: column; justify-content: center; align-items: center;
         }
-        
         #baslat-btn {
-            padding: 20px 50px; background: #27ae60; color: #fff;
+            padding: 18px 45px; background: #c0392b; color: #fff;
             border: none; border-radius: 50px; font-size: 20px; font-weight: bold;
-            cursor: pointer; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            cursor: pointer; box-shadow: 0 10px 20px rgba(0,0,0,0.3);
         }
-        
-        /* Kamera görüntüsünü tüm ekrana yayar */
-        video, canvas {
-            width: 100vw !important;
-            height: 100vh !important;
-            object-fit: cover !important;
+
+        /* Tarama yapılırken çıkan o meşhur kare çerçeveyi geri getiriyoruz */
+        .mindar-ui-scanning {
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
         }
     </style>
 </head>
 <body>
 
-    <div id="arayuz">
-        <button id="baslat-btn">KAMERAYI AÇ</button>
-        <p style="color: white; margin-top: 20px; font-family: sans-serif;">Lütfen kameraya izin verin.</p>
+    <div id="giris-ekrani">
+        <button id="baslat-btn">DENEYİMİ BAŞLAT</button>
+        <p style="color: #aaa; margin-top: 20px; font-family: sans-serif;">Kamera açılınca tabloyu okutun.</p>
     </div>
 
     <a-scene 
@@ -42,45 +42,47 @@
         vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
         
         <a-assets>
-            <video id="fethiVideo" src="video_2.mp4" preload="auto" loop crossorigin="anonymous" playsinline></video>
+            <video id="ar-video" src="video_2.mp4" preload="auto" loop crossorigin="anonymous" playsinline></video>
         </a-assets>
 
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
         <a-entity mindar-image-target="targetIndex: 0" id="hedef">
-            <a-video src="#fethiVideo" position="0 0 0" height="1" width="1.6"></a-video>
+            <a-video src="#ar-video" position="0 0 0" height="1" width="1.6" rotation="0 0 0"></a-video>
         </a-entity>
     </a-scene>
 
     <script>
         const btn = document.querySelector("#baslat-btn");
-        const ui = document.querySelector("#arayuz");
+        const giris = document.querySelector("#giris-ekrani");
         const scene = document.querySelector("a-scene");
-        const video = document.querySelector("#fethiVideo");
+        const video = document.querySelector("#ar-video");
 
-        btn.addEventListener('click', async () => {
-            // Önce kamerayı düz tarayıcı komutuyla uyandıralım
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                // İzni aldık, şimdi MindAR'ın kullanması için serbest bırakalım
-                stream.getTracks().forEach(track => track.stop());
-                
-                ui.style.display = "none";
-                
-                // AR sistemini başlat
-                const arSystem = scene.systems["mindar-image-system"];
-                arSystem.start(); 
+        btn.addEventListener('click', () => {
+            giris.style.display = "none";
+            
+            // Sistemi başlat
+            const arSystem = scene.systems["mindar-image-system"];
+            arSystem.start(); 
 
-                // Videoyu hazırla
-                video.play().then(() => { video.pause(); });
-            } catch (err) {
-                alert("Kamera başlatılamadı. Lütfen tarayıcı ayarlarından izin verin.");
-            }
+            // Videoyu sessiz başlat-durdur (Kilit açma)
+            video.muted = true;
+            video.play().then(() => {
+                video.pause();
+                video.muted = false;
+            });
         });
 
         const hedef = document.querySelector("#hedef");
-        hedef.addEventListener("targetFound", () => { video.play(); });
-        hedef.addEventListener("targetLost", () => { video.pause(); });
+        hedef.addEventListener("targetFound", () => {
+            video.play();
+            console.log("Resim algılandı!");
+        });
+
+        hedef.addEventListener("targetLost", () => {
+            video.pause();
+            console.log("Resim görüşten çıktı.");
+        });
     </script>
 </body>
 </html>
