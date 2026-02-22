@@ -2,97 +2,91 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Istanbul AR - Final</title>
+    <title>Istanbul AR - Cozum Merkezi</title>
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
-    
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
-        #arayuz {
+        body { margin: 0; overflow: hidden; background: #111; font-family: sans-serif; }
+        #debug-log { 
+            position: fixed; top: 0; left: 0; width: 100%; background: rgba(0,0,0,0.8);
+            color: #00ff00; font-size: 11px; z-index: 20000; padding: 10px; max-height: 100px; overflow-y: auto;
+        }
+        #panel {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 9999; display: flex;
-            flex-direction: column; justify-content: center; align-items: center;
+            background: #000; z-index: 10000; display: flex; flex-direction: column; justify-content: center; align-items: center;
         }
-        #btn {
-            padding: 20px 60px; background: #27ae60; color: #fff;
-            border: none; border-radius: 50px; font-weight: bold; font-size: 22px;
-            cursor: pointer; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        button {
+            padding: 20px 50px; background: #e67e22; color: white; border: none; border-radius: 50px; font-size: 20px; font-weight: bold; cursor: pointer;
         }
-        #log {
-            position: fixed; bottom: 10px; left: 10px; color: yellow;
-            font-size: 10px; z-index: 10000; pointer-events: none;
-        }
+        /* Kamerayi görünür yapmak için kritik CSS */
+        video, canvas { position: fixed !important; top: 0; left: 0; z-index: -1 !important; }
     </style>
 </head>
 <body>
 
-    <div id="log">Sistem başlatılıyor...</div>
+    <div id="debug-log">Sistem hazır. Butona basınız...</div>
 
-    <div id="arayuz">
-        <button id="btn">DENEYİMİ BAŞLAT</button>
-        <p style="color: #666; margin-top: 15px;">Lütfen kameraya izin verin.</p>
+    <div id="panel">
+        <button id="start-btn">KAMERAYI UYANDIR</button>
+        <p style="color: white; margin-top: 20px;">Sorun olursa sayfayı yenileyin.</p>
     </div>
 
     <a-scene 
         mindar-image="imageTargetSrc: ./targets_1.mind; autoStart: false; uiLoading: no; uiScanning: yes;" 
-        embedded color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" 
-        vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+        embedded vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
         
         <a-assets>
-            <video id="v" src="video_2.mp4" preload="auto" loop crossorigin="anonymous" playsinline webkit-playsinline></video>
+            <video id="v" src="video_2.mp4" preload="auto" loop crossorigin="anonymous" playsinline></video>
         </a-assets>
 
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-        <a-entity mindar-image-target="targetIndex: 0" id="hedef">
+        <a-entity mindar-image-target="targetIndex: 0" id="target">
             <a-video src="#v" position="0 0 0" height="1" width="1.8"></a-video>
         </a-entity>
     </a-scene>
 
     <script>
-        const btn = document.querySelector("#btn");
-        const arayuz = document.querySelector("#arayuz");
-        const log = document.querySelector("#log");
-        const scene = document.querySelector("a-scene");
-        const video = document.querySelector("#v");
+        const log = (msg) => { document.getElementById('debug-log').innerText += "\n> " + msg; };
+        const btn = document.getElementById('start-btn');
+        const panel = document.getElementById('panel');
+        const video = document.getElementById('v');
 
         btn.addEventListener('click', async () => {
-            log.innerText = "Kamera izni isteniyor...";
+            log("Butona tıklandı. Kamera isteniyor...");
             
-            try {
-                // Kamerayı tarayıcı üzerinden zorla uyandır
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                stream.getTracks().forEach(track => track.stop()); // İzni aldık, şimdi MindAR'a bırakıyoruz
-                
-                arayuz.style.display = "none";
-                log.innerText = "AR Sistemi başlatılıyor...";
-                
-                const arSystem = scene.systems["mindar-image-system"];
-                arSystem.start(); 
+            // 1. Adım: Tarayıcıda Kamera API'si var mı?
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                log("HATA: Tarayıcınız kamerayı desteklemiyor veya bağlantı güvenli değil (HTTPS değil).");
+                return;
+            }
 
-                // Videoyu 'uyandır' (sessiz oynat-durdur)
-                video.muted = true;
-                video.play().then(() => {
-                    video.pause();
-                    video.muted = false;
-                });
+            try {
+                // 2. Adım: Kamerayı manuel olarak açmayı dene
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                log("Kamera izni alındı.");
+                stream.getTracks().forEach(t => t.stop()); // İzni aldık, serbest bırak
+
+                panel.style.display = "none";
                 
-                log.innerText = "Kamera AKTİF. Hedefi okutun.";
+                // 3. Adım: AR Sistemini başlat
+                const scene = document.querySelector('a-scene');
+                const arSystem = scene.systems["mindar-image-system"];
+                arSystem.start();
+                log("AR Sistemi başlatıldı. Hedefi tarayın.");
+
+                // Video kilidini aç
+                video.play().then(() => video.pause());
 
             } catch (err) {
-                log.innerText = "HATA: " + err.message;
-                alert("Kamera izni reddedildi veya bulunamadı.");
+                log("HATA: " + err.name + " - " + err.message);
+                alert("Kamera hatası: " + err.message);
             }
         });
 
-        const hedef = document.querySelector("#hedef");
-        hedef.addEventListener("targetFound", () => {
-            log.innerText = "HEDEF BULUNDU!";
+        document.getElementById('target').addEventListener("targetFound", () => {
+            log("Hedef bulundu! Video başlıyor.");
             video.play();
-        });
-        hedef.addEventListener("targetLost", () => {
-            log.innerText = "HEDEF KAYIP.";
-            video.pause();
         });
     </script>
 </body>
