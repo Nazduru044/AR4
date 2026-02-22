@@ -3,78 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Istanbul AR</title>
+    <title>İstanbul AR - Full Screen</title>
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; }
-        #hazirlik {
+        /* Tam ekran için gerekli CSS */
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+        
+        #giris-ekrani {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; color: white; z-index: 10000;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: #000; z-index: 10000; display: flex;
+            flex-direction: column; justify-content: center; align-items: center;
         }
-        #baslatBtn {
-            padding: 20px 40px; background: #e67e22; color: white;
+        #baslat-btn {
+            padding: 18px 45px; background: #c0392b; color: #fff;
             border: none; border-radius: 50px; font-size: 20px; font-weight: bold;
+            cursor: pointer; box-shadow: 0 10px 20px rgba(0,0,0,0.3);
         }
-        .mindar-ui-loading, .mindar-ui-scanning { display: none !important; }
+
+        /* Tarama yapılırken çıkan o meşhur kare çerçeveyi geri getiriyoruz */
+        .mindar-ui-scanning {
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+        }
     </style>
 </head>
 <body>
 
-    <div id="hazirlik">
-        <button id="baslatBtn">DENEYİMİ BAŞLAT</button>
-        <p id="durum" style="margin-top: 15px; font-size: 14px;">Lütfen butona tıklayın.</p>
+    <div id="giris-ekrani">
+        <button id="baslat-btn">DENEYİMİ BAŞLAT</button>
+        <p style="color: #aaa; margin-top: 20px; font-family: sans-serif;">Kamera açılınca tabloyu okutun.</p>
     </div>
 
     <a-scene 
-        mindar-image="imageTargetSrc: ./targets_1.mind; autoStart: false; uiLoading: no; uiScanning: no;" 
+        mindar-image="imageTargetSrc: ./targets_1.mind; autoStart: false; uiLoading: no; uiScanning: yes;" 
         embedded color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" 
         vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
         
         <a-assets>
-            <video id="vid" src="video_2.mp4" preload="auto" loop crossorigin="anonymous" playsinline></video>
+            <video id="ar-video" src="video_2.mp4" preload="auto" loop crossorigin="anonymous" playsinline></video>
         </a-assets>
 
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
         <a-entity mindar-image-target="targetIndex: 0" id="hedef">
-            <a-video src="#vid" position="0 0 0" height="1" width="1.6"></a-video>
+            <a-video src="#ar-video" position="0 0 0" height="1" width="1.6" rotation="0 0 0"></a-video>
         </a-entity>
     </a-scene>
 
     <script>
-        const btn = document.querySelector("#baslatBtn");
-        const hazirlik = document.querySelector("#hazirlik");
-        const durum = document.querySelector("#durum");
+        const btn = document.querySelector("#baslat-btn");
+        const giris = document.querySelector("#giris-ekrani");
         const scene = document.querySelector("a-scene");
-        const video = document.querySelector("#vid");
+        const video = document.querySelector("#ar-video");
 
-        btn.addEventListener('click', async () => {
-            durum.innerText = "Kamera izni bekleniyor...";
+        btn.addEventListener('click', () => {
+            giris.style.display = "none";
             
-            try {
-                // 1. Önce kamerayı düz tarayıcı komutuyla isteyelim
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                stream.getTracks().forEach(track => track.stop()); // İzni aldık, şimdi MindAR için serbest bırakalım
+            // Sistemi başlat
+            const arSystem = scene.systems["mindar-image-system"];
+            arSystem.start(); 
 
-                // 2. Arayüzü kapat ve MindAR'ı başlat
-                hazirlik.style.display = "none";
-                const arSystem = scene.systems["mindar-image-system"];
-                arSystem.start(); 
-
-                // 3. Videoyu sessizce hazırla
-                video.play().then(() => { video.pause(); });
-                
-            } catch (err) {
-                durum.innerText = "Kamera hatası: " + err.message;
-                alert("Lütfen ayarlardan kamera izni verin.");
-            }
+            // Videoyu sessiz başlat-durdur (Kilit açma)
+            video.muted = true;
+            video.play().then(() => {
+                video.pause();
+                video.muted = false;
+            });
         });
 
         const hedef = document.querySelector("#hedef");
-        hedef.addEventListener("targetFound", () => { video.play(); });
-        hedef.addEventListener("targetLost", () => { video.pause(); });
+        hedef.addEventListener("targetFound", () => {
+            video.play();
+            console.log("Resim algılandı!");
+        });
+
+        hedef.addEventListener("targetLost", () => {
+            video.pause();
+            console.log("Resim görüşten çıktı.");
+        });
     </script>
 </body>
 </html>
